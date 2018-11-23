@@ -2,7 +2,7 @@
 # Introduced by Dalal and Triggs at CVPR Conference in 2005
 
 # DESCRIPTION OF IMPLEMENTATION:
-# - Following the original implementation, we use an image of 64x128 pixels.
+# - Following the original implementation, we use an image of 64 width x 128 height.
 # - We operate on 8x8 cells within the detection window, organized into overlapping blocks.
 # - Within a cell, we compute the gradient vector/histogram at each pixel, i.e. put the 64 gradient vectors
 #   in our 8x8 cell into a 9-bin histogram ranging from 0 to 180 degrees with 20 degrees per bin. Each gradient's
@@ -17,8 +17,6 @@
 # - Fun fact: in a talk given by Dalal for ACM, he said he empirically determined that 6x6 cell size, with
 #   3x3 block size, produced the lowest errors empirically.
 
-
-
 # FUNCTION DESCRIPTION
 # Computes the gradient vector for a single 8x8 cell
 # PARAMETERS
@@ -28,7 +26,10 @@
 # RETURNS
 # - a 9-bin histogram, which is structured as a vector of vectors (?)
 def compute_cell_histogram(image, initial_x_coord, initial_y_coord):
-    # TODO
+    # Iterate through each of the pixels in the local 8x8 cell, and compute their gradients.
+    for pixel_y in range(initial_y_coord, 8-1):
+        for pixel_x in range (initial_x_coord, 8-1):
+            # TODO: compute gradients for each pixel
 
 # FUNCTION DESCRIPTION
 # Inserts each computed cell histogram into a two-dimensional matrix mirroring the image itself
