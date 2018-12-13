@@ -1,5 +1,4 @@
 import numpy as np
-from facial_detection_util import *
 
 # HOGS (Histogram of Oriented Gradients) Person Detector (Dalal and Triggs, 2005)
 
@@ -26,7 +25,7 @@ from facial_detection_util import *
 # RETURNS
 # - a 9-bin histogram, which is structured as a vector
 '''
-def compute_cell_histogram(mag_section, theta_section, orient_bins):
+def compute_cell_histogram(y, x, mag_section, theta_section, orient_bins):
     # tterate through each pixel in the local 8x8 cell
     hist = [0] * 9
     for i in range(mag_section.shape[0]):
@@ -39,29 +38,39 @@ def compute_cell_histogram(mag_section, theta_section, orient_bins):
             else:
                 ind = np.digitize(theta_section[j, i], orient_bins) - 1
                 # split magnitude between two closest bins
-                if theta_section[j, i] > (orient_bins[ind + 1] / orient_bins[ind]) / 2:
-                    if ind == len(orient_bins) - 1: # wrap around
+                if theta_section[j, i] > (orient_bins[ind + 1] + orient_bins[ind]) / 2:
+                    if ind == len(hist) - 1:
+                        # wrap around to first bin
                         adj_ind = 0
                     else:
                         adj_ind = ind + 1
-                elif theta_section[j, i] < (orient_bins[ind + 1] / orient_bins[ind]) / 2:
-                    if ind == 0: # wrap around
-                        adj_ind = len(orient_bins) - 1
+                elif theta_section[j, i] < (orient_bins[ind + 1] + orient_bins[ind]) / 2:
+                    if ind == 0:
+                        # wrap around to last bin
+                        adj_ind = len(hist) - 1
                     else:
                         adj_ind = ind - 1
                 else: # case where angle is center of a bin
                     adj_ind = -1
             
             try:
-                if adj_ind != -1:
-                    pct_split = np.abs(orient_bins[adj_ind] - theta_section[j, i]) / \
-                        (orient_bins[1] / orient_bins[0])
-                    hist[ind] += (1 - pct_split) * mag_section[j, i]
-                    hist[adj_ind] += pct_split * mag_section[j, i]
-                else:
+                if adj_ind == -1:
                     hist[ind] += mag_section[j, i]
-            except: # need exception in case theta falls outside the specified bins (w/o try/except, program might crash)
-                pass
+                else:
+                    if adj_ind < ind:
+                        pct_split = np.abs((orient_bins[ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    else:
+                        pct_split = np.abs((orient_bins[adj_ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    hist[ind] += (1 - pct_split) * mag_section[j, i]
+                    if (1 - pct_split) * mag_section[j, i] < 0:
+                        print(y, x, (1 - pct_split), '(1 - pct_split)')
+                    hist[adj_ind] += pct_split * mag_section[j, i]
+                    if pct_split * mag_section[j, i] < 0:
+                        print(y, x, mag_section[j, i], pct_split, 'pct_split')
+            except Exception as e:
+                print(y, x, e)
+            # except: # need exception in case theta falls outside the specified bins (w/o try/except, program might crash)
+            #     pass
     return hist
 
 
@@ -72,7 +81,7 @@ def compute_cell_histogram(mag_section, theta_section, orient_bins):
 # - histogram_cell: the histogram of the particular cell to be added
 # RETURNS
 # - an updated histogram array, with the new cell added in the correct location
-def insert_histogram_array():
+# def insert_histogram_array():
     # TODO
 
 # FUNCTION DESCRIPTION
@@ -82,6 +91,5 @@ def insert_histogram_array():
 # - histogram_array: the array of histograms for the entire image, saved in order of their locations
 # RETURNS
 # - a new histogram array, which contains normalized histograms
-def block_normalize(histogram):
+# def block_normalize(img_section):
     # TODO
-

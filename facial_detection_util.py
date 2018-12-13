@@ -111,6 +111,25 @@ def trim_border(image, wx = 1, wy = 1):
 
 
 """
+   Return an approximation of a 1-dimensional Gaussian filter.
+   Credit: hw2 distribution.
+
+   The returned filter approximates:
+
+   g(x) = 1 / sqrt(2 * pi * sigma^2) * exp( -(x^2) / (2 * sigma^2) )
+
+   for x in the range [-3*sigma, 3*sigma]
+"""
+def gaussian_1d(sigma = 1.0):
+    width = np.ceil(3.0 * sigma)
+    x = np.arange(-width, width + 1)
+    g = np.exp(-(x * x) / (2 * sigma * sigma))
+    g = g / np.sum(g)          # normalize filter to sum to 1 ( equivalent
+    g = np.atleast_2d(g)       # to multiplication by 1 / sqrt(2*pi*sigma^2) )
+    return g
+
+
+"""
     CONVOLUTION
 
     Convolve a 2D image with a 2D filter. Credit: hw2 distribution.
@@ -165,6 +184,46 @@ def conv_2d(image, filt):
     # remove padding
     result = trim_border(result, wx, wy)
     return result
+
+
+"""
+    CONVOLUTION WITH GAUSSIAN
+
+    Credit: hw2 distribution.
+    Convolve the input image with a 2D filter G(x,y) defined by:
+
+    G(x,y) = 1 / sqrt(2 * pi * sigma^2) * exp( -(x^2 + y^2) / (2 * sigma^2) )
+
+    You may approximate the G(x,y) filter by computing it on a
+    discrete grid for both x and y in the range [-3*sigma, 3*sigma].
+
+    See the gaussian_1d function for reference.
+
+    Note:
+    (1) Remember that the Gaussian is a separable filter.
+    (2) Denoising should not create artifacts along the border of the image.
+       Make an appropriate assumption in order to obtain visually plausible
+       results along the border.
+
+    Arguments:
+      image - a 2D numpy array
+      sigma - standard deviation of the Gaussian
+
+    Returns:
+      img   - smoothed image, a 2D numpy array of the same shape as the input
+"""
+def conv_2d_gaussian(image, sigma = 1.0):
+    # generate Gaussian filters
+    fx = gaussian_1d(sigma)
+    fy = np.transpose(fx)
+    # pad image by mirroring
+    width = (fx.shape[1] - 1) // 2
+    img = mirror_border(image, width, width)
+    # convolve
+    img = conv_2d(conv_2d(img, fx), fy)
+    # remove padding
+    img = trim_border(img, width, width)
+    return img
 
 
 """
