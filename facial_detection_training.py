@@ -1,10 +1,8 @@
 import numpy as np
 import os
-from skimage.transform import resize
-# from sklearn.linear_model import LogisticRegression
-from facial_detection_util import load_image, canny_nmax, conv_2d_gaussian
-from facial_detection import compute_cell_histogram
+from facial_detection_util import load_image, canny_nmax, conv_1d_centered, compute_cell_histogram
 from sklearn import svm
+import pickle
 
 # orientation bins
 orient_bins = [0, np.pi / 9, (2 * np.pi) / 9, np.pi / 3, (4 * np.pi) / 9,
@@ -22,12 +20,11 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
     X_train = []
     y_train = []
 
+    x = 0
+
     # positive training data (faces)
     for file in os.listdir('data/detection-train/face') + os.listdir('data/detection-train/non-face'):
         if file.endswith('.png'):
-            # img_num = file[:-4]
-            img_num = 'face00138'
-            # convert image to grayscale (not nec. for training set, since all images are grayscale, but good to remember for testing)
             try:
                 img = load_image('data/detection-train/face/' + file)
                 y_train.append(1)
@@ -35,25 +32,28 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
                 img = load_image('data/detection-train/non-face/' + file)
                 y_train.append(0)
 
+            x += 1
+            if x % 200 == 0:
+                print(x)
+
             X_train_feature = []
 
-            # training images are 19x19. resize to 24x24 to create a whole number of 8x8 cells
-            img = resize(img, (24, 24), anti_aliasing = True, mode = 'constant')
+            img = conv_1d_centered(img)
 
             hists = np.zeros((int(img.shape[0] / cell_len), int(img.shape[1] / cell_len), len(orient_bins) - 1))
             # get gradient magnitudes and orientations, compute histograms and store in hists
             mag, theta = canny_nmax(img)
             for i in range(0, img.shape[0], cell_len):
                 for j in range(0, img.shape[0], cell_len):
+                    # print(i, j)
                     mag_section = mag[j:j + cell_len, j:j + cell_len]
-                    gaussian_weighted_mag_section = conv_2d_gaussian(mag_section)
                     theta_section = theta[j:j + cell_len, j:j + cell_len]
-                    hist = compute_cell_histogram(j, i, gaussian_weighted_mag_section, theta_section, orient_bins)
+                    hist = compute_cell_histogram(file, j, i, mag_section, theta_section, orient_bins)
                     hists[int(j / cell_len), int(i / cell_len)] = hist
 
             # perform block normalization on hists
-            for i in range(len(hists.shape[1])):
-                for j in range(len(hists.shape[0])):
+            for i in range(hists.shape[1] - 1):
+                for j in range(hists.shape[0] - 1):
                     block_hist = np.concatenate((hists[i][j], hists[i + 1][j], hists[i][j + 1], hists[i + 1][j + 1]))
                     normalized_block_hist = block_hist / np.linalg.norm(block_hist)
                     X_train_feature.append(normalized_block_hist)
@@ -76,15 +76,17 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
         model (sklearn model) - SVM model that predicts the probability
             an image is a face
 '''
-def train_model():
+if __name__ == '__main__':
     X_train, y_train = create_training_x_y()
+    pickle.dump(X_train, open('X_train_8', 'wb'))
+    pickle.dump(y_train, open('y_train_8', 'wb'))
+    # X_train_1, y_train_1 = create_training_x_y(cell_len = 4)
     #create and train an svm classifier
     model = svm.SVC(kernel='linear')
-    # above is linear kernel, could also do
-    # Gaussian Kernel: svclassifier = SVC(kernel='rbf')
-    # Sigmoid Kernel: svclassifier = SVC(kernel='sigmoid') 
+    # model_1 = svm.SVC(kernel='linear')
     model.fit(X_train, y_train)
-    # y_pred = svclassifier.predict(X_test)
-    print("Training accuracy:", model.score(X_train, y_train))
-    return model
+    # model_1.fit(X_train_1, y_train_1)
+    print("Training accuracy w/ cell length = 8:", model.score(X_train, y_train))
+    # print("Training accuracy w/ cell length = 4:", model_1.score(X_train_1, y_train_1))
+    pickle.dump(model, open('linear_svm_8', 'wb'))
 

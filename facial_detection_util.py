@@ -1,6 +1,103 @@
 import imageio
 import numpy as np
 
+
+'''
+# FUNCTION DESCRIPTION
+# Computes the gradient vector for a single 8x8 cell
+# PARAMETERS
+# - image: input image, which can be in color (?)
+# - initial_x_coord: the horizontal offset (in multiples of 8) from the initial x coord of the sliding window.
+# - initial_y_coord: the vertical offset (in multiples of 8) from the initial y coord of the sliding window.
+# RETURNS
+# - a 9-bin histogram, which is structured as a vector
+'''
+def compute_cell_histogram(file, y, x, mag_section, theta_section, orient_bins):
+    # iterate through each pixel in the local 8x8 cell
+    hist = [0] * (len(orient_bins) - 1)
+    for i in range(mag_section.shape[0]):
+        for j in range(mag_section.shape[1]):
+            if theta_section[j, i] == np.pi:
+                ind = len(hist) - 1
+                adj_ind = -1 # case when direction falls perfectly on bin edge
+                # np.digitize interprets pi as falling outside the specified
+                # orientation bins, so need to manually assign ind value
+            else:
+                ind = np.digitize(theta_section[j, i], orient_bins) - 1
+                # split mag_section[j, i]nitude between two closest bins
+                if theta_section[j, i] % (orient_bins[1] - orient_bins[0]) == 0:
+                # direction falls perfectly on bin edge
+                    adj_ind = -1
+                elif theta_section[j, i] % ((orient_bins[1] + orient_bins[0]) / 2) == 0:
+                # direction falls perfectly in center of bin
+                    adj_ind = -2
+                elif theta_section[j, i] > (orient_bins[ind + 1] + orient_bins[ind]) / 2:
+                    if ind == len(hist) - 1:
+                        # wrap around to first bin
+                        adj_ind = 0
+                    else:
+                        adj_ind = ind + 1
+                elif theta_section[j, i] < (orient_bins[ind + 1] + orient_bins[ind]) / 2:
+                    if ind == 0:
+                        # wrap around to last bin
+                        adj_ind = len(hist) - 1
+                    else:
+                        adj_ind = ind - 1
+                else:
+                    adj_ind = -2
+            
+            try:
+                if adj_ind == -1:
+                    pct_split = 0.5
+                    hist[ind] += pct_split * mag_section[j, i]
+                    if ind == 0:
+                        a_ind = len(hist) - 1
+                    elif ind == len(hist) - 1:
+                        a_ind = 0
+                    else:
+                        a_ind = ind - 1
+                    hist[a_ind] += pct_split * mag_section[j, i]
+                elif adj_ind == -2:
+                    hist[ind] += mag_section[j, i]
+                else:
+                    if (adj_ind < ind) or (adj_ind == len(hist) - 1 and ind == 0): # account for case where bin wraps around end
+                        pct_split = np.abs((orient_bins[ind + 1] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    else:
+                        pct_split = np.abs((orient_bins[ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    hist[ind] += pct_split * mag_section[j, i]
+                    hist[adj_ind] += (1 - pct_split) * mag_section[j, i]
+            except Exception as e:
+                # print('HERE')
+                print(e, file, y, x, i, j)
+                continue
+    return hist
+
+
+"""
+    CONVOLUTION WITH 1D CENTERED FILTER
+
+    Convolve the input image with the 1D centered filter [−1, 0, 1]
+
+    Arguments:
+      image - a 2D numpy array
+
+    Returns:
+      img   - convolved image, a 2D numpy array of the same shape as the input
+"""
+def conv_1d_centered(image):
+    # generate 1-D centered filter
+    fx = [-1, 0, 1]
+    fy = np.transpose(fx)
+    # pad image by mirroring
+    width = (len(fx) - 1) // 2
+    img = mirror_border(image, width, width)
+    # convolve
+    img = conv_2d(conv_2d(img, fx), fy)
+    # remove padding
+    img = trim_border(img, width, width)
+    return img
+
+
 """
     Convert an RGB image to grayscale. Credit: hw2 distribution.
 
@@ -111,25 +208,6 @@ def trim_border(image, wx = 1, wy = 1):
 
 
 """
-   Return an approximation of a 1-dimensional Gaussian filter.
-   Credit: hw2 distribution.
-
-   The returned filter approximates:
-
-   g(x) = 1 / sqrt(2 * pi * sigma^2) * exp( -(x^2) / (2 * sigma^2) )
-
-   for x in the range [-3*sigma, 3*sigma]
-"""
-def gaussian_1d(sigma = 1.0):
-    width = np.ceil(3.0 * sigma)
-    x = np.arange(-width, width + 1)
-    g = np.exp(-(x * x) / (2 * sigma * sigma))
-    g = g / np.sum(g)          # normalize filter to sum to 1 ( equivalent
-    g = np.atleast_2d(g)       # to multiplication by 1 / sqrt(2*pi*sigma^2) )
-    return g
-
-
-"""
     CONVOLUTION
 
     Convolve a 2D image with a 2D filter. Credit: hw2 distribution.
@@ -184,46 +262,6 @@ def conv_2d(image, filt):
     # remove padding
     result = trim_border(result, wx, wy)
     return result
-
-
-"""
-    CONVOLUTION WITH GAUSSIAN
-
-    Credit: hw2 distribution.
-    Convolve the input image with a 2D filter G(x,y) defined by:
-
-    G(x,y) = 1 / sqrt(2 * pi * sigma^2) * exp( -(x^2 + y^2) / (2 * sigma^2) )
-
-    You may approximate the G(x,y) filter by computing it on a
-    discrete grid for both x and y in the range [-3*sigma, 3*sigma].
-
-    See the gaussian_1d function for reference.
-
-    Note:
-    (1) Remember that the Gaussian is a separable filter.
-    (2) Denoising should not create artifacts along the border of the image.
-       Make an appropriate assumption in order to obtain visually plausible
-       results along the border.
-
-    Arguments:
-      image - a 2D numpy array
-      sigma - standard deviation of the Gaussian
-
-    Returns:
-      img   - smoothed image, a 2D numpy array of the same shape as the input
-"""
-def conv_2d_gaussian(image, sigma = 1.0):
-    # generate Gaussian filters
-    fx = gaussian_1d(sigma)
-    fy = np.transpose(fx)
-    # pad image by mirroring
-    width = (fx.shape[1] - 1) // 2
-    img = mirror_border(image, width, width)
-    # convolve
-    img = conv_2d(conv_2d(img, fx), fy)
-    # remove padding
-    img = trim_border(img, width, width)
-    return img
 
 
 """

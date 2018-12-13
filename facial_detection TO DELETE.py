@@ -37,8 +37,14 @@ def compute_cell_histogram(y, x, mag_section, theta_section, orient_bins):
                 # orientation bins, so need to manually assign ind value
             else:
                 ind = np.digitize(theta_section[j, i], orient_bins) - 1
-                # split magnitude between two closest bins
-                if theta_section[j, i] > (orient_bins[ind + 1] + orient_bins[ind]) / 2:
+                # split mag_section[j, i]nitude between two closest bins
+                if theta_section[j, i] % (orient_bins[1] - orient_bins[0]) == 0:
+                # direction falls perfectly between two bins
+                    adj_ind = -1
+                elif theta_section[j, i] % ((orient_bins[1] - orient_bins[0]) / 2) == 0:
+                # direction falls perfectly in the center of a bin
+                    adj_ind = -2
+                elif theta_section[j, i] > (orient_bins[ind + 1] + orient_bins[ind]) / 2:
                     if ind == len(hist) - 1:
                         # wrap around to first bin
                         adj_ind = 0
@@ -50,27 +56,31 @@ def compute_cell_histogram(y, x, mag_section, theta_section, orient_bins):
                         adj_ind = len(hist) - 1
                     else:
                         adj_ind = ind - 1
-                else: # case where angle is center of a bin
-                    adj_ind = -1
             
             try:
                 if adj_ind == -1:
+                    pct_split = 0.5
+                    hist[ind] += pct_split * mag_section[j, i]
+                    if ind == 0:
+                        a_ind = len(hist) - 1
+                    elif ind == len(hist) - 1:
+                        a_ind = 0
+                    else:
+                        a_ind = ind - 1
+                    hist[a_ind] += pct_split * mag_section[j, i]
+                elif adj_ind == -2:
                     hist[ind] += mag_section[j, i]
                 else:
-                    if adj_ind < ind:
-                        pct_split = np.abs((orient_bins[ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    if (adj_ind < ind) or (adj_ind == len(hist) - 1 and ind == 0): # account for case where bin wraps around end
+                        pct_split = np.abs((orient_bins[ind + 1] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
                     else:
-                        pct_split = np.abs((orient_bins[adj_ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
-                    hist[ind] += (1 - pct_split) * mag_section[j, i]
-                    if (1 - pct_split) * mag_section[j, i] < 0:
-                        print(y, x, (1 - pct_split), '(1 - pct_split)')
-                    hist[adj_ind] += pct_split * mag_section[j, i]
-                    if pct_split * mag_section[j, i] < 0:
-                        print(y, x, mag_section[j, i], pct_split, 'pct_split')
+                        pct_split = np.abs((orient_bins[ind] - theta_section[j, i]) / (orient_bins[1] - orient_bins[0]))
+                    hist[ind] += pct_split * mag_section[j, i]
+                    hist[adj_ind] += (1 - pct_split) * mag_section[j, i]
             except Exception as e:
-                print(y, x, e)
+                print(e)
+                continue
             # except: # need exception in case theta falls outside the specified bins (w/o try/except, program might crash)
-            #     pass
     return hist
 
 
