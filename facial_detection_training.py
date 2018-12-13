@@ -23,16 +23,16 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
     y_train = []
 
     # positive training data (faces)
-    for file in os.listdir('data/mit-cbcl-faces/train/face') + os.listdir('data/mit-cbcl-faces/train/non-face'):
-        if file.endswith('.pgm'):
+    for file in os.listdir('data/detection-train/face') + os.listdir('data/detection-train/non-face'):
+        if file.endswith('.png'):
             # img_num = file[:-4]
             img_num = 'face00138'
             # convert image to grayscale (not nec. for training set, since all images are grayscale, but good to remember for testing)
             try:
-                img = load_image('data/mit-cbcl-faces/train/face/' + img_num + '.pgm')
+                img = load_image('data/detection-train/face/' + file)
                 y_train.append(1)
             except:
-                img = load_image('data/mit-cbcl-faces/train/non-face/' + img_num + '.pgm')
+                img = load_image('data/detection-train/non-face/' + file)
                 y_train.append(0)
 
             X_train_feature = []
@@ -58,7 +58,7 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
                     normalized_block_hist = block_hist / np.linalg.norm(block_hist)
                     X_train_feature.append(normalized_block_hist)
 
-            X_train.append(np.concatenate(X_train_feature, axis=0))
+            X_train.append(np.concatenate(X_train_feature, axis = 0))
 
     X_train = np.array(X_train)
     y_train = np.array(y_train)

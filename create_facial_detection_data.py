@@ -42,7 +42,8 @@ def generate_pos_neg_data(read_directory, imgs_bbxs, write_directory):
         x += 1
         if x % 50 == 0:
             print(x)
-        try: # DELETE TRY AT END
+        try: # need try b/c only used sample of WIDER face dataset, so need to check
+        # image file from annotations exists in sample
             img = load_image(read_directory + img_file)
             img_name = re.findall('/(\w+)', img_file)[0]
             
@@ -89,11 +90,8 @@ def generate_pos_neg_data(read_directory, imgs_bbxs, write_directory):
 # later:
 # get_data_imgs_bbxs('data/WIDER_annotations/wider_face_train_bbx_gt.txt')
 if __name__ == '__main__':
-    train_imgs_bbxs = get_imgs_bbxs('data/WIDER_annotations/wider_face_train_bbx_gt.txt')
+    # train_imgs_bbxs = get_imgs_bbxs('data/WIDER_annotations/wider_face_train_bbx_gt.txt')
     test_imgs_bbxs = get_imgs_bbxs('data/WIDER_annotations/wider_face_val_bbx_gt.txt')
-    generate_pos_neg_data('data/WIDER_train/images/', train_imgs_bbxs, 'data/detection-train/')
-    # generate_pos_neg_data('data/WIDER_val/images/', test_imgs_bbxs, 'data/detection-test/')
-
-
-
+    # generate_pos_neg_data('data/WIDER_train/images/', train_imgs_bbxs, 'data/detection-train/')
+    generate_pos_neg_data('data/WIDER_test/images/', test_imgs_bbxs, 'data/detection-test/')
 
