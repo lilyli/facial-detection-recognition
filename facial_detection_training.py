@@ -84,12 +84,20 @@ if __name__ == '__main__':
     pickle.dump(X_train, open('X_train', 'wb'))
     pickle.dump(y_train, open('y_train', 'wb'))
     # create and train an svm classifier
-    model = svm.SVC(kernel='linear', probability = True)
+    model = svm.SVC(kernel='linear')
     model.fit(X_train, y_train)
     print("Training accuracy w/ cell len = 8:", model.score(X_train, y_train))
-    # 0.7570450334326916
-    pickle.dump(model, open('linear_svm_8_proba_true', 'wb'))
+    # 
+    pickle.dump(model, open('linear_svm_8_proba_false', 'wb'))
+
+    X_train = pickle.load(open('X_train', 'rb'))
+    y_train = pickle.load(open('y_train', 'rb'))
     model_2 = svm.LinearSVC(C = 0.0001)
+    model_2.fit(X_train, y_train)
+    print("Training accuracy w/ cell len = 8:", model_2.score(X_train, y_train))
+    # 0.7943297887789844
+    pickle.dump(model_2, open('linear_svc', 'wb'))
+
 
 
 # FINAl image counts: 24058 training faces, 38455 non-faces
