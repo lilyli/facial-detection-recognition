@@ -12,7 +12,7 @@ import numpy as np
 # RETURNS
 # - a 9-bin histogram, which is structured as a vector
 '''
-def compute_cell_histogram(file, y, x, mag_section, theta_section, orient_bins):
+def compute_cell_histogram(mag_section, theta_section, orient_bins):
     # iterate through each pixel in the local 8x8 cell
     hist = [0] * (len(orient_bins) - 1)
     for i in range(mag_section.shape[0]):
@@ -67,8 +67,7 @@ def compute_cell_histogram(file, y, x, mag_section, theta_section, orient_bins):
                     hist[ind] += pct_split * mag_section[j, i]
                     hist[adj_ind] += (1 - pct_split) * mag_section[j, i]
             except Exception as e:
-                # print('HERE')
-                print(e, file, y, x, i, j)
+                print(e)
                 continue
     return hist
 

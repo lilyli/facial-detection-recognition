@@ -46,14 +46,17 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
                 for j in range(0, img.shape[0], cell_len):
                     mag_section = mag[j:j + cell_len, j:j + cell_len]
                     theta_section = theta[j:j + cell_len, j:j + cell_len]
-                    hist = compute_cell_histogram(file, j, i, mag_section, theta_section, orient_bins)
+                    hist = compute_cell_histogram(mag_section, theta_section, orient_bins)
                     hists[int(j / cell_len), int(i / cell_len)] = hist
 
             # perform block normalization on hists
             for i in range(hists.shape[1] - 1):
                 for j in range(hists.shape[0] - 1):
                     block_hist = np.concatenate((hists[i][j], hists[i + 1][j], hists[i][j + 1], hists[i + 1][j + 1]))
-                    normalized_block_hist = block_hist / np.linalg.norm(block_hist)
+                    try:
+                        normalized_block_hist = block_hist / np.linalg.norm(block_hist)
+                    except: # in case where np.linalg.norm(block_hist) == 0
+                        normalized_block_hist = block_hist
                     X_train_feature.append(normalized_block_hist)
 
             X_train.append(np.concatenate(X_train_feature, axis = 0))

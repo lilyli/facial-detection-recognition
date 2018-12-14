@@ -4,6 +4,8 @@ import argparse
 import sys
 import pickle
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from skimage.transform import resize
 from matplotlib.patches import Rectangle
 from PIL import Image
 
@@ -15,6 +17,7 @@ orient_bins = [0, np.pi / 9, (2 * np.pi) / 9, np.pi / 3, (4 * np.pi) / 9,
 
 # EDIT UTIL HISTOGRAM FUNCTION TO DELETE TESTING PARAMETERS TO PRINT
 
+# stick w/ 8x8 model, sample training images, retrain model w/ probabilities
 
 '''
 Given grayscale image, return the coordinates of the bounding boxes
@@ -32,7 +35,7 @@ def detect_faces(img, model):
     X_test = []
 
     # iterate over every 32 x 32 section in the img
-    for x in range(0, img.shape[1] - window_w, int(window_w / 2)): # step by window_w / 2 to speed up computation
+    for x in range(0, img.shape[1] - window_w, int(window_w / 4)): # step by window_w / 2 to speed up computation
         for y in range(0, img.shape[0] - window_w, int(window_w / 2)):
             # calculate HOG feature vector for the 32 x 32 window
             X_test_feature = []
@@ -52,41 +55,42 @@ def detect_faces(img, model):
                     X_test_feature.append(normalized_block_hist) # ADD POSITIONS TO FEATURE VECTS
 
             X_test.append(np.concatenate(([y, x], np.concatenate(X_test_feature)), axis = 0))
-            if y % 100 == 0:
-                print('y', y)
-        if x % 200 == 0:
-            print('x', x)
-
-            # run model on whoile of x_test, save those w/ prob above threshols
     
     X_test = np.array(X_test)
-    y_predictions = model.predict(X_test[:, 2:])[:,0]
-
-    X_test = X_test[~np.nonzero(y_predictions).any(axis=1)]
-
-	return X_test[:, 2:]
+    y_predictions = model.predict(X_test[:, 2:]) #[:,0]
+    X_test = X_test[np.where(y_predictions == 1)[0]][:, :2]
+    return X_test
 
 
-def detect_and_recognize_faces(img_list):
-	# gray_img = load_image('data/detection-train/face/' + file)
-    img = load_image('test.jpg')
-	faces_bbxs = []
+def detect_and_recognize_faces(img_list, model):
+    # gray_img = load_image('data/detection-train/face/' + file)
+    gray_img = load_image('test3.jpg')
+    faces_bbxs = []
 
-	for scale in (0.5, 0.7, 0.9, 1): #, 1.1, 1.3, 1.5):
-		scaled_img = resize(gray_img, (gray_img.shape[0] * scale, gray_img.shape[1] * scale), anti_aliasing = True, mode = 'constant')
-		bbxs = detect_faces(scaled_img)
-		for bbx in bbxs:
-			faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale), round(window_w / scale)], bbx[2])
+    # for scale in (0.8, 1): #, 0.5, 1.1, 1.3, 1.5):
+    scale = 1
+    scaled_img = resize(gray_img, (round(gray_img.shape[0] * scale), round(gray_img.shape[1] * scale)), anti_aliasing = True, mode = 'constant')
+    bbxs = detect_faces(scaled_img, model)
+    for bbx in bbxs:
+        faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale), round(window_w / scale)]) # don't have prob atm , bbx[2])
+
+    fig, ax = plt.subplots(1)
+    ax.imshow(gray_img)
+    for bbx in faces_bbxs:
+        rect = patches.Rectangle((bbx[1], bbx[0]), bbx[2], bbx[2],
+            linewidth = 1, edgecolor = 'r', facecolor='none')
+        ax.add_patch(rect)
+    plt.show()
 
 # https://stackoverflow.com/questions/37435369/matplotlib-how-to-draw-a-rectangle-on-image for drawing boxes
 
 
-	'''
-	1: scale iamge to multiple scales. CHECK
-	2. slide 32 x 32 window across img at each scale using detect_faces()
-	3. collect all bounding boxes from all iterations of step 2 and scale to fit orig scale of img CHECK
-	4. do non-max suppresion to delete duplicate boxes
-	5. imshow() iamge with boxes highlighted
+    '''
+    1: scale image to multiple scales. CHECK
+    2. slide 32 x 32 window across img at each scale using detect_faces()
+    3. collect all bounding boxes from all iterations of step 2 and scale to fit orig scale of img CHECK
+    4. do non-max suppresion to delete duplicate boxes
+    5. imshow() iamge with boxes highlighted
     '''
 
 
