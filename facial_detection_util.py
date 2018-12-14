@@ -15,8 +15,8 @@ import numpy as np
 def compute_cell_histogram(mag_section, theta_section, orient_bins):
     # iterate through each pixel in the local 8x8 cell
     hist = [0] * (len(orient_bins) - 1)
-    for i in range(mag_section.shape[0]):
-        for j in range(mag_section.shape[1]):
+    for i in range(mag_section.shape[1]):
+        for j in range(mag_section.shape[0]):
             if theta_section[j, i] == np.pi:
                 ind = len(hist) - 1
                 adj_ind = -1 # case when direction falls perfectly on bin edge
