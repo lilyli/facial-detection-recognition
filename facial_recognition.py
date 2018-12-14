@@ -4,7 +4,7 @@ from scipy.spatial import distance
 
 #################### Implementation of LDML Classifier #######################
 
-# An implemention of the LDML technique in Guillaumin et. al (2009). This technique
+# An implementation of the LDML technique in Guillaumin et. al (2009). This technique
 # learns a linear transformation by optimizing the parameters of a logistic discriminant model,
 # which is used to determine if two images depict the same person or not.
 # P(yi = yj | xi, xj, M, b) = (1 + exp(dM(xi, xj) - b))^-1
@@ -26,11 +26,9 @@ def mahalanobis_dist(vector0, vector1, inverse_of_covariance_mx):
 # https://beckernick.github.io/logistic-regression-from-scratch/
 # and OH with Dr. Maire.
 def train_weights(gt_dist, gt_labels, num_steps, learning_rate):
-
     # we are optimizing for gt_dist and the intercept (bias) term, so create a new features container
     intercept = np.ones((gt_dist.shape[0]), 1)
     features = np.hstack((intercept, gt_dist))
-
     # initialize weights
     weights = np.zeros(features.shape[1])
 
@@ -43,7 +41,7 @@ def train_weights(gt_dist, gt_labels, num_steps, learning_rate):
 
     return weights
 
-# Function to extract feature vector
+# TODO: update this temporary placeholder with HOG feature descriptor
 def extract_feature_vector(img):
     vector = img[0] # temporary
     return vector
@@ -101,6 +99,14 @@ def train_LDML():
         ws = train_weights(dists, labels, 1000, 0.01) # last two parameters were arbitrary
         return ws
 
+def resolve_gtlabel(file, base_idx, companion_idx):
+    # TODO: instructions below
+    # find the gtlabel0 of the image with index base_idx
+    # find the gtlabel1 of the image with index companion_idx
+    # if gtlabel0 == gtlabel1, then return 1
+    # if gtlabel0 != gtlabel1, then return 0
+    return 0
+
 # Predicts LDML probability, using trained weights, for a single image.
 # Given an feature vector (now just Mahalanobis dist, potentially more), and trained weights, return probability
 # that this distance vector belongs to a pair of images that depict the same face.
@@ -111,18 +117,26 @@ def predict_ldml_singlepair(img0, img1, trained_ws):
     features = [d] # can potentially append more features, in addition to Mahalanobis distance
     return sigmoid(np.dot(features, trained_ws))
 
-# TODO: For testing, calculate the differences from a bunch of images, and apply the predict() function
-# TODO: check by inspection (?)
+def test_LDML():
+    res0 = predict_ldml_singlepair()
+    # TODO: For testing, calculate the differences from a bunch of images, and apply the predict() function
+    # TODO: check by inspection (?)
+    # TODO: check against the gt in the test dataset
+    # TODO: returns a numeric saying how many percentage passed
+    positive_count = -1
+    all_count = -1
+    precision = positive_count / all_count # TODO: update these count values based on iteration through test set
+    recall = positive_count / actual_positive_count
+    f_score= 2 * ( (precision * recall) / (precision + recall) )
+    return precision, recall, f_score
 
-def resolve_gtlabel(file, base_idx, companion_idx):
-    # TODO: instructions below
-    # find the gtlabel0 of the image with index base_idx
-    # find the gtlabel1 of the image with index companion_idx
-    # if gtlabel0 == gtlabel1, then return 1
-    # if gtlabel0 != gtlabel1, then return 0
-    return 0
-
-
+if __name__ == "__main__":
+    weights = train_LDML()
+    p, r, f = test_LDML()
+    print("Testing results are below...")
+    print("Precision: " + str(p))
+    print("Recall: " + str(r))
+    print("F-Score: " + str(f))
 
 #################### Implementation of mKnn Classifier #######################
 
@@ -133,19 +147,47 @@ def resolve_gtlabel(file, base_idx, companion_idx):
 # The purpose of Knn is to use a database in which the data points are separated into different classes to predict
 # the classification of a new sample point.
 
-# Step 1: Calculate the feature vectors of every image in the test set.
+# Step 1: Find the nearest neighbor for each image.
+def nearest_neighbor():
+    list2 = list_of_images
+    index = 0
 
-# Step 2: Given a new test pair of images, calculate their feature vectors xi and xj.
+    for img in list_of_images:
+        dists = []
+        vt0 = extract_feature_vector(img)
+        del list2[index]
+        for index in range(len(list2)):
+            d = distance.euclidean(vt0, list2[index])
+            dists.append((list2[index], d, index)) # appends a three-element tuple
+        dists.sort(key=operator.itemgetter(1))
+        neighbors = []
+        for index in range(k):
+            neighbors.append(dists[index][2])
+        index += 1
+        # TODO: set the 'neighbor' for this particular img
+
+
+
+# Step 2: Calculate distances between investigated pair, and all other distances in the classification set.
+
+
+
+
 
 # Step 3: Calculate the probability that we assign xi to class c using P(yi=c|xi)=ni_c/k;
 # and the probability that we assign xj to class c using P(yj=c|xj)=nj_c/k, where
 # ni_c is the number of neighbors of xi of class c, and nj_c is the number of neighbors of xj of class c.
 # So get ni_c and nj_c, we need to iterate through all the nearest neighbors, and tally votes.
 
+
 # Step 4: Sum the joint probability of belonging to the same class c, across all classes.
 # p(yi=yj|xi,xj) = SUMMATION_ALL_CLASSES( p(yi=c|xi) * p(yj=c|xj) )
 
+
+
 # Step 5: <Decide a threshold for probability to convert from a number between 0<x<1 to binary classifier output?>
+
+
 
     #################### Questions #######################
 
