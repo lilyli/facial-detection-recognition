@@ -128,7 +128,7 @@ def test_LDML():
     precision = positive_count / all_count # TODO: update these count values based on iteration through test set
     recall = positive_count / actual_positive_count
     f_score= 2 * ( (precision * recall) / (precision + recall) )
-    return precision, recall, f_score
+        return precision, recall, f_score
 
 if __name__ == "__main__":
     weights = train_LDML()
@@ -148,41 +148,68 @@ if __name__ == "__main__":
 # the classification of a new sample point.
 
 # Step 1: Find the nearest neighbor for each image.
-def nearest_neighbor():
-    list2 = list_of_images
-    index = 0
+# returns the histogram of class counts, for every image
+def find_nearest_neighbor(k, list_of_images, list_of_labels):
 
+    all_histograms = []
+    index = 0
     for img in list_of_images:
         dists = []
         vt0 = extract_feature_vector(img)
-        del list2[index]
-        for index in range(len(list2)):
-            d = distance.euclidean(vt0, list2[index])
-            dists.append((list2[index], d, index)) # appends a three-element tuple
+        for id in range(len(list_of_images)):
+            if id == index: # ignore the image vector itself
+                continue
+            else:
+                d = distance.euclidean(vt0, list_of_images[id])
+                dists.append((list_of_images[id], d, id)) # appends a three-element tuple
         dists.sort(key=operator.itemgetter(1))
         neighbors = []
-        for index in range(k):
-            neighbors.append(dists[index][2])
+        for id in range(k):
+            neighbors.append(dists[id][2]) # appending the "id", within the list_of_images, that was added
+
+        sorted_values = np.unique(neighbors) # this will be indices of the histogram
+        num_bins = len(sorted_values)
+        histogram = np.zeros(shape=(num_bins, 2))
+
+        for id in range(num_bins):
+            histogram[id][0] = sorted_values[id] # creating the "labels" of the bins of the histogram
+
+        for id in neighbors:
+            class_id = list_of_labels[id]
+            bin_id = sorted_values.index(class_id) # find the index of an item given a list containing it
+            histogram[bin_id][1] += 1 # incrementing the "bin" part of the bins of the histogram
+            # now we have a histogram that tallies counts of each class in its neighboring region, for this image
+
+        all_histograms.append(histogram) # the order is preserved in terms of "for img in list_of_images"
         index += 1
-        # TODO: set the 'neighbor' for this particular img
+    return all_histograms
 
+# returns, for an image pair, the probability metric
+def probability_per_pair(histogram_0, histogram_1, k):
+    bin_labels_0 = histogram_0[:,0] # extract the 1st column (labels of histogram bins) as new list
+    bin_labels_1 = histogram_1[:,0]
 
+    pairs = []
+    for label_0 in bin_labels_0:
+        for label_1 in bin_labels_1:
+            if label_0 != label_1:
+                continue
+            else:
+                product = histogram_0[label_0] * histogram_1[label_1] # multiple the counts of this class in histograms 0 and 1
+                pairs.append(product)
+                break
+    numerator = sum(pairs)
+    denominator = k**2
+    probability = numerator / denominator # probability that the class labels of the two images (histograms) are equal
+    return probability
 
-# Step 2: Calculate distances between investigated pair, and all other distances in the classification set.
+def train_mknn_using_lmnn():
+    # Can't use LDML to train, but we need LMNN which is optimized for kNN, as mentioned in the paper.
+    # TODO: use the pyLMNN package
+    # TODO: clarify with professor - the relationship between MkNN and LMNN
 
-
-
-
-
-# Step 3: Calculate the probability that we assign xi to class c using P(yi=c|xi)=ni_c/k;
-# and the probability that we assign xj to class c using P(yj=c|xj)=nj_c/k, where
-# ni_c is the number of neighbors of xi of class c, and nj_c is the number of neighbors of xj of class c.
-# So get ni_c and nj_c, we need to iterate through all the nearest neighbors, and tally votes.
-
-
-# Step 4: Sum the joint probability of belonging to the same class c, across all classes.
-# p(yi=yj|xi,xj) = SUMMATION_ALL_CLASSES( p(yi=c|xi) * p(yj=c|xj) )
-
+def predict_mknn_singlepair(target_img_0, target_img_1, expanded_list_of_imgs):
+    # TODO: how to test a "new" pair? How to compute the nearest neighbors of this "New" pair? Introduce to existing KNN reservoir?
 
 
 # Step 5: <Decide a threshold for probability to convert from a number between 0<x<1 to binary classifier output?>
