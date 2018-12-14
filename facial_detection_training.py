@@ -37,15 +37,13 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
                 print(x)
 
             X_train_feature = []
-
             img = conv_1d_centered(img)
-
-            hists = np.zeros((int(img.shape[0] / cell_len), int(img.shape[1] / cell_len), len(orient_bins) - 1))
-            # get gradient magnitudes and orientations, compute histograms and store in hists
             mag, theta = canny_nmax(img)
-            for i in range(0, img.shape[0], cell_len):
+            hists = np.zeros((int(img.shape[0] / cell_len), int(img.shape[1] / cell_len), len(orient_bins) - 1))
+
+            # get gradient magnitudes and orientations, compute histograms and store in hists
+            for i in range(0, img.shape[1], cell_len):
                 for j in range(0, img.shape[0], cell_len):
-                    # print(i, j)
                     mag_section = mag[j:j + cell_len, j:j + cell_len]
                     theta_section = theta[j:j + cell_len, j:j + cell_len]
                     hist = compute_cell_histogram(file, j, i, mag_section, theta_section, orient_bins)
@@ -61,12 +59,13 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
             X_train.append(np.concatenate(X_train_feature, axis = 0))
 
     X_train = np.array(X_train)
-    y_train = np.array(y_train)
+    # remove non-finite values (e.g. NaN) that may have arisen
+    X_train_1 = X_train[~np.isnan(X_train).any(axis=1)]
+    y_train = np.array(y_train)[~np.isnan(X_train).any(axis=1)]
 
-    return X_train, y_train
+    return X_train_1, y_train
 
 # FOR TESTING, NEED TO THINK ABOUT SCALE OF IMAGE- resample image at multiple scales
-# might want to train w/ labelled faces in wild dataset instead, can use both color and b&w images
 
 
 '''
@@ -77,16 +76,19 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
             an image is a face
 '''
 if __name__ == '__main__':
-    X_train, y_train = create_training_x_y()
-    pickle.dump(X_train, open('X_train_8', 'wb'))
-    pickle.dump(y_train, open('y_train_8', 'wb'))
-    # X_train_1, y_train_1 = create_training_x_y(cell_len = 4)
-    #create and train an svm classifier
-    model = svm.SVC(kernel='linear')
-    # model_1 = svm.SVC(kernel='linear')
-    model.fit(X_train, y_train)
-    # model_1.fit(X_train_1, y_train_1)
-    print("Training accuracy w/ cell length = 8:", model.score(X_train, y_train))
-    # print("Training accuracy w/ cell length = 4:", model_1.score(X_train_1, y_train_1))
-    pickle.dump(model, open('linear_svm_8', 'wb'))
+    # train model w/ cell len = 8
+    # X_train, y_train_8 = create_training_x_y()
+    X_train = pickle.load(open('X_train_8', 'rb'))
+    y_train_8 = pickle.load(open('y_train_8', 'rb'))
+    X_train_8 = X_train[~np.isnan(X_train).any(axis=1)]
+    y_train_8 = np.array(y_train_8)[~np.isnan(X_train).any(axis=1)]
+    # pickle.dump(X_train_8, open('X_train_8', 'wb'))
+    # pickle.dump(y_train_8, open('y_train_8', 'wb'))
+    # create and train an svm classifier
+    model_8 = svm.SVC(kernel='linear', probability = True)
+    model_8.fit(X_train_8, y_train_8)
+    print("Training accuracy w/ cell len = 8:", model_8.score(X_train_8, y_train_8))
+    # 0.7570450334326916
+    pickle.dump(model_8, open('linear_svm_8_proba_true', 'wb'))
 
+# FINAl image counts: 24058 training faces, 38455 non-faces
