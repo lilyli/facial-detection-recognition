@@ -17,7 +17,7 @@ def sigmoid(input):
 
 # Function to calculate Mahalanobis Distance for a pair of images
 def mahalanobis_dist(vector0, vector1, inverse_of_covariance_mx):
-    dist = distance.mahalanobis(vector0, vector1, inverse_of_covariance_mx) # how to find inverse of covariance?
+    dist = distance.mahalanobis(vector0, vector1, np.linalg.inv(np.cov(vector1,vector1))) # how to find inverse of covariance?
     return dist
 
 # Build logistic model using gradient ascent, with intercept term
@@ -80,7 +80,7 @@ def train_LDML():
                 print("Differencing img with base id" + str(base_id) + "with that of companion id " + str(companion_id))
                 companion_vt = extract_feature_vector(companion)
 
-                d = mahalanobis_dist(base_vt, companion_vt, ???????) # inverse of covariance matrix?
+                d = mahalanobis_dist(base_vt, companion_vt, np.linalg.inv(np.cov(base_vt,companion_vt)))
                 dist_mx[base_id][companion_id] = d # TODO: convert this to np.array to accommodate additional dimensions!
 
                 label = resolve_gtlabel(gtlabels_file, base_id, companion_id)
@@ -107,7 +107,7 @@ def train_LDML():
 def predict_ldml_singlepair(img0, img1, trained_ws):
     features0 = extract_feature_vector(img0)
     features1 = extract_feature_vector(img1)
-    d = mahalanobis_dist(features0, features1, ???) # TODO: find covariance matrix
+    d = mahalanobis_dist(features0, features1, np.linalg.inv(np.cov(features0,features1)))
     features = [d] # can potentially append more features, in addition to Mahalanobis distance
     return sigmoid(np.dot(features, trained_ws))
 
