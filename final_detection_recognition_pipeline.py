@@ -35,47 +35,52 @@ def detect_faces(img, model):
     X_test = []
 
     # iterate over every 32 x 32 section in the img
-    for x in range(0, img.shape[1] - window_w, int(window_w / 4)): # step by window_w / 2 to speed up computation
-        for y in range(0, img.shape[0] - window_w, int(window_w / 2)):
+    for x in range(0, img.shape[1] - window_w, int(cell_len / 4)): # step by cell_len / 2 to speed up computation
+        for y in range(0, img.shape[0] - window_w, int(cell_len / 2)):
             # calculate HOG feature vector for the 32 x 32 window
             X_test_feature = []
             hists = np.zeros((int(window_w / cell_len), int(window_w / cell_len), len(orient_bins) - 1))
             for i in range(x, x + window_w, cell_len):
                 for j in range(y, y + window_w, cell_len):
-                    mag_section = mag[j:j + cell_len, j:j + cell_len]
-                    theta_section = theta[j:j + cell_len, j:j + cell_len]
-                    hist = compute_cell_histogram('xx', j, i, mag_section, theta_section, orient_bins)
+                    mag_section = mag[j:j + cell_len, i:i + cell_len]
+                    theta_section = theta[j:j + cell_len, i:i + cell_len]
+                    hist = compute_cell_histogram(mag_section, theta_section, orient_bins)
                     hists[int((j - y) / cell_len), int((i - x) / cell_len)] = hist
 
             # perform block normalization on hists
             for i in range(hists.shape[1] - 1):
                 for j in range(hists.shape[0] - 1):
-                    block_hist = np.concatenate((hists[i][j], hists[i + 1][j], hists[i][j + 1], hists[i + 1][j + 1]))
-                    normalized_block_hist = block_hist / np.linalg.norm(block_hist)
-                    X_test_feature.append(normalized_block_hist) # ADD POSITIONS TO FEATURE VECTS
+                    block_hist = np.concatenate((hists[j][i], hists[j + 1][i], hists[j][i + 1], hists[j + 1][i + 1]))
+                    try:
+                        normalized_block_hist = block_hist / np.linalg.norm(block_hist)
+                    except: # in case where np.linalg.norm(block_hist) == 0
+                        normalized_block_hist = block_hist
+                    X_test_feature.append(normalized_block_hist)
 
             X_test.append(np.concatenate(([y, x], np.concatenate(X_test_feature)), axis = 0))
     
     X_test = np.array(X_test)
-    y_predictions = model.predict(X_test[:, 2:]) #[:,0]
+    y_predictions = model.predict(X_test[:, 2:])
     X_test = X_test[np.where(y_predictions == 1)[0]][:, :2]
     return X_test
 
 
 def detect_and_recognize_faces(img_list, model):
     # gray_img = load_image('data/detection-train/face/' + file)
-    gray_img = load_image('test3.jpg')
+    gray_img = load_image('test.jpg')
     faces_bbxs = []
 
     # for scale in (0.8, 1): #, 0.5, 1.1, 1.3, 1.5):
-    scale = 1
+    scale = 0.3
     scaled_img = resize(gray_img, (round(gray_img.shape[0] * scale), round(gray_img.shape[1] * scale)), anti_aliasing = True, mode = 'constant')
     bbxs = detect_faces(scaled_img, model)
     for bbx in bbxs:
-        faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale), round(window_w / scale)]) # don't have prob atm , bbx[2])
+        faces_bbxs.append([bbx[0], bbx[1], window_w]) # don't have prob atm , bbx[2])
+
+        # faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale), round(window_w / scale)]) # don't have prob atm , bbx[2])
 
     fig, ax = plt.subplots(1)
-    ax.imshow(gray_img)
+    ax.imshow(scaled_img) # gray_img)
     for bbx in faces_bbxs:
         rect = patches.Rectangle((bbx[1], bbx[0]), bbx[2], bbx[2],
             linewidth = 1, edgecolor = 'r', facecolor='none')
@@ -100,4 +105,4 @@ if __name__ == '__main__':
     #     help = 'The images to segment. Seperate file names with a space.')
     # args = parser.parse_args()
     # img_files = vars(args)['images']
-    model = pickle.load(open('linear_svm_8', 'rb'))
+    model = pickle.load(open('linear_svm', 'rb'))

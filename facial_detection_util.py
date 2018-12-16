@@ -405,7 +405,7 @@ def canny_nmax(image):
     dx, dy = sobel_gradients(image)
     # compute gradient magnitude and direction
     mag   = np.sqrt((dx * dx) + (dy * dy))
-    # convert direction from [-2*pi, 2*pi] to [0, 2*pi]
+    # convert direction from [-pi, pi] to [0, pi]
     theta = np.abs(np.arctan2(dy, dx))
     # nonmax suppress
     mag = nonmax_suppress(mag, theta)

@@ -20,8 +20,6 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
     X_train = []
     y_train = []
 
-    x = 0
-
     # positive training data (faces)
     for file in os.listdir('data/detection-train/face') + os.listdir('data/detection-train/non-face'):
         if file.endswith('.png'):
@@ -31,10 +29,6 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
             except:
                 img = load_image('data/detection-train/non-face/' + file)
                 y_train.append(0)
-
-            x += 1
-            if x % 200 == 0:
-                print(x)
 
             X_train_feature = []
             img = conv_1d_centered(img)
@@ -68,8 +62,6 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
 
     return X_train_1, y_train
 
-# FOR TESTING, NEED TO THINK ABOUT SCALE OF IMAGE- resample image at multiple scales
-
 
 '''
     Train the model
@@ -79,25 +71,25 @@ def create_training_x_y(cell_len = 8): # test diff cell sizes, since 8x8 was for
             an image is a face
 '''
 if __name__ == '__main__':
-    # train model w/ cell len = 8
-    X_train, y_train = create_training_x_y()
-    pickle.dump(X_train, open('X_train', 'wb'))
-    pickle.dump(y_train, open('y_train', 'wb'))
+    # X_train, y_train = create_training_x_y()
+    # pickle.dump(X_train, open('X_train', 'wb'))
+    # pickle.dump(y_train, open('y_train', 'wb'))
+    X_train = pickle.load(open('X_train', 'rb'))
+    y_train = pickle.load(open('y_train', 'rb'))
+
     # create and train an svm classifier
     model = svm.SVC(kernel='linear')
     model.fit(X_train, y_train)
-    print("Training accuracy w/ cell len = 8:", model.score(X_train, y_train))
-    # 
-    pickle.dump(model, open('linear_svm_8_proba_false', 'wb'))
+    print("Training accuracy of linear SVM:", model.score(X_train, y_train))
+    pickle.dump(model, open('linear_svm', 'wb'))
 
-    X_train = pickle.load(open('X_train', 'rb'))
-    y_train = pickle.load(open('y_train', 'rb'))
     model_2 = svm.LinearSVC(C = 0.0001)
     model_2.fit(X_train, y_train)
-    print("Training accuracy w/ cell len = 8:", model_2.score(X_train, y_train))
-    # 0.7943297887789844
+    print("Training accuracy of linear SVC w/ C = 0.0001:", model_2.score(X_train, y_train))
     pickle.dump(model_2, open('linear_svc', 'wb'))
 
+    model_3 = svm.LinearSVC(C = 0.01)
+    model_3.fit(X_train, y_train)
+    print("Training accuracy of linear SVC w/ C = 0.01:", model_3.score(X_train, y_train))
+    pickle.dump(model_3, open('linear_svc_1', 'wb'))
 
-
-# FINAl image counts: 24058 training faces, 38455 non-faces
