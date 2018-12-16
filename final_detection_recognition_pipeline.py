@@ -1,41 +1,50 @@
 import numpy as np
 from facial_detection_util import load_image, canny_nmax, conv_1d_centered, compute_cell_histogram
+from facial_recognition_ldml_method import main
 import argparse
 import sys
 import pickle
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from skimage.transform import resize
-from matplotlib.patches import Rectangle
-from PIL import Image
+import seaborn as sns
+
 
 window_w = 32
-threshold = 0.7
-cell_len = 8 #CHANGE IF NEED BE
+cell_len = 8
 orient_bins = [0, np.pi / 9, (2 * np.pi) / 9, np.pi / 3, (4 * np.pi) / 9,
     (5 * np.pi) / 9, (2 * np.pi) / 3, (7 * np.pi) / 9, (8 * np.pi) / 9, np.pi]
 
-# EDIT UTIL HISTOGRAM FUNCTION TO DELETE TESTING PARAMETERS TO PRINT
 
-# stick w/ 8x8 model, sample training images, retrain model w/ probabilities
+'''
+Calculate the area of the intersection between two rectangles
+r1 and r2 are np arrays or lists of len 4, in the coordinate order ymin, xmin, ymax, xmax
+'''
+def intersection_area(r1, r2):
+    dy = min(max(r1[0], r1[2]), max(r2[0], r2[2])) - max(min(r1[0], r1[2]), min(r2[0], r2[2]))
+    dx = min(max(r1[1], r1[3]), max(r2[1], r2[3])) - max(min(r1[1], r1[3]), min(r2[1], r2[3]))
+    if (dx >= 0) and (dy >= 0):
+        return dx * dy
+    else: # the rectangles don't intersect
+        return None
+
 
 '''
 Given grayscale image, return the coordinates of the bounding boxes
 of faces in the image
 
 bbx coord: (y, x) for upper left hand corner of window
-bbx[2]: prob of match
 '''
 def detect_faces(img, model):
-    # slide 32 x 32 window over every pixel of image
-    # apply svm to every window, check if prob > threshold
+    # slide 32 x 32 window over every pixel of image, calculate
+    # HOG feature vector and feed to trained facial detection SVM
 
     img = conv_1d_centered(img)
     mag, theta = canny_nmax(img)
     X_test = []
 
     # iterate over every 32 x 32 section in the img
-    for x in range(0, img.shape[1] - window_w, int(cell_len / 4)): # step by cell_len / 2 to speed up computation
+    for x in range(0, img.shape[1] - window_w, int(cell_len / 2)): # step by cell_len / 2 to speed up computation
         for y in range(0, img.shape[0] - window_w, int(cell_len / 2)):
             # calculate HOG feature vector for the 32 x 32 window
             X_test_feature = []
@@ -61,48 +70,91 @@ def detect_faces(img, model):
     
     X_test = np.array(X_test)
     y_predictions = model.predict(X_test[:, 2:])
-    X_test = X_test[np.where(y_predictions == 1)[0]][:, :2]
-    return X_test
+    y_distances = model.decision_function(X_test[:, 2:])
+
+    X_test = X_test[np.where(y_predictions == 1)][:, :2]
+    y_distances = y_distances[np.where(y_predictions == 1)]
+    return X_test, y_distances
+
+
+def nonmax_suppression_bbxs(bbxs, distances, img_size):
+    # order boxes by distances from decision_function()
+    order = np.argsort(-distances)
+    distances = distances[order]
+    bbxs = bbxs[order]
+
+    # indicator vector
+    keep_bbox = np.asarray([True] * len(distances))
+
+    # overlap threshold above which the less confident detection is suppressed
+    threshold = 0.5
+
+    for i in range(len(bbxs)):
+        cur_bbx = bbxs[i]
+        cur_bbx_area = (cur_bbx[2] - cur_bbx[0]) * (cur_bbx[3] - cur_bbx[1])
+        # check bbx hasn't already been suppressed
+        if keep_bbox[i]:
+            # iterate through other bbxs to find those who overlap
+            for j in np.where(keep_bbox)[0]:
+                if i == j: # don't examine pairs of the same bbx
+                    other_bbx = bbxs[j]
+                    other_bbx_area = (other_bbx[2] - other_bbx[0]) * (other_bbx[3] - other_bbx[1])
+
+                    # check if the two boxes intersect
+                    if ((cur_bbx[0] <= other_bbx[0] <= cur_bbx[0] + cur_bbx[2] \
+                        or cur_bbx[0] <= other_bbx[2] <= cur_bbx[0] + cur_bbx[2]) \
+                        and (cur_bbx[1] <= other_bbx[1] <= cur_bbx[1] + cur_bbx[3] \
+                        or cur_bbx[1] <= other_bbx[3] <= cur_bbx[1] + cur_bbx[3])):
+                        
+                        intersect_area = intersection_area(cur_bbx, other_bbx)
+                        # overlap = area of intersection / area of union
+                        # suppress other boxes with an overlap >= threshold
+                        if intersect_area / (cur_bbx_area + other_bbx_area) >= threshold:
+                            keep_bbox[j] = False
+
+    return np.where(keep_bbox)
 
 
 def detect_and_recognize_faces(img_list, model):
-    # gray_img = load_image('data/detection-train/face/' + file)
-    gray_img = load_image('test.jpg')
-    faces_bbxs = []
+    # all_faces = []
+    # all_faces_bbx = []
 
-    # for scale in (0.8, 1): #, 0.5, 1.1, 1.3, 1.5):
-    scale = 0.3
-    scaled_img = resize(gray_img, (round(gray_img.shape[0] * scale), round(gray_img.shape[1] * scale)), anti_aliasing = True, mode = 'constant')
-    bbxs = detect_faces(scaled_img, model)
-    for bbx in bbxs:
-        faces_bbxs.append([bbx[0], bbx[1], window_w]) # don't have prob atm , bbx[2])
+    for img in img_list:
+        gray_img = load_image(img)
+        faces_bbxs = []
 
-        # faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale), round(window_w / scale)]) # don't have prob atm , bbx[2])
+        for scale in [0.8, 0.9, 1, 1.1, 1.2]:
+            scaled_img = resize(gray_img, (round(gray_img.shape[0] * scale),
+                round(gray_img.shape[1] * scale)), anti_aliasing = True, mode = 'constant')
+            bbxs, distances = detect_faces(scaled_img, model)
+            for bbx in bbxs:
+                faces_bbxs.append([round(bbx[0] / scale), round(bbx[1] / scale),
+                    round(bbx[0] / scale) + round(bbx[0] / scale), round(bbx[0] / scale) + round(bbx[1] / scale)])
 
-    fig, ax = plt.subplots(1)
-    ax.imshow(scaled_img) # gray_img)
-    for bbx in faces_bbxs:
-        rect = patches.Rectangle((bbx[1], bbx[0]), bbx[2], bbx[2],
-            linewidth = 1, edgecolor = 'r', facecolor='none')
-        ax.add_patch(rect)
-    plt.show()
+        valid_bbx_ind = nonmax_suppression_bbxs(np.array(faces_bbxs), distances, gray_img.shape)
+        valid_bbxs = np.array(faces_bbxs)[np.where(valid_bbx_ind[0])]
+        # for bbx in valid_bbxs:
+        #     all_faces.append(scaled_img[bbx[0]:bbx[2], bbx[1]:bbx[3], img, (0, 0, 0)]) # add placeholder for color
+        # all_faces_bbx.append(valid_bbxs)
 
-# https://stackoverflow.com/questions/37435369/matplotlib-how-to-draw-a-rectangle-on-image for drawing boxes
+        fig, ax = plt.subplots(1)
+        ax.imshow(gray_img)
+        for bbx in valid_bbxs:
+            rect = patches.Rectangle((bbx[1], bbx[0]), bbx[2] - bbx[1], bbx[2] - bbx[1],
+                linewidth = 1, edgecolor = 'r', facecolor='none')
+            ax.add_patch(rect)
+        plt.show()
 
-
-    '''
-    1: scale image to multiple scales. CHECK
-    2. slide 32 x 32 window across img at each scale using detect_faces()
-    3. collect all bounding boxes from all iterations of step 2 and scale to fit orig scale of img CHECK
-    4. do non-max suppresion to delete duplicate boxes
-    5. imshow() iamge with boxes highlighted
-    '''
+    # colors = sns.color_palette('bright', len(all_faces))
+    # ldml_model = main()
 
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description = 'Segment an image')
-    # parser.add_argument('-images', type = str, nargs = '+', required = True,
-    #     help = 'The images to segment. Seperate file names with a space.')
-    # args = parser.parse_args()
-    # img_files = vars(args)['images']
+    parser = argparse.ArgumentParser(description = 'Segment an image')
+    parser.add_argument('-images', type = str, nargs = '+', required = True,
+        help = 'The images to segment. Seperate file names with a space.')
+    args = parser.parse_args()
+    img_files = vars(args)['images']
     model = pickle.load(open('linear_svm', 'rb'))
+    detect_and_recognize_faces(img_files, model)
+

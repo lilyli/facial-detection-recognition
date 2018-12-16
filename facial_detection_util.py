@@ -6,7 +6,7 @@ import numpy as np
 # FUNCTION DESCRIPTION
 # Computes the gradient vector for a single 8x8 cell
 # PARAMETERS
-# - image: input image, which can be in color (?)
+# - image: input image
 # - initial_x_coord: the horizontal offset (in multiples of 8) from the initial x coord of the sliding window.
 # - initial_y_coord: the vertical offset (in multiples of 8) from the initial y coord of the sliding window.
 # RETURNS
